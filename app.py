@@ -6,8 +6,9 @@ from dotenv import load_dotenv
 from utils.storage import (
     upload_file_to_blob, 
     download_file_from_blob,
-    delete_file_from_blob
-)
+    delete_file_from_blob,
+    list_blobs_in_container
+    )
 from io import BytesIO
 
 load_dotenv()
@@ -51,15 +52,8 @@ def upload_file():
 
 @app.route('/files', methods=['GET'])
 def list_files():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, file_name, file_size, blob_url FROM file_metadata")
-    files = cursor.fetchall()
-    cursor.close()
-    conn.close()
-
-    file_list = [{"id": file[0], "file_name": file[1], "file_size": file[2], "file_url": file[3]} for file in files]
-    return jsonify(file_list), 200
+    files = list_blobs_in_container()
+    return jsonify(files), 200
 
 @app.route('/download/<path:file_name>', methods=['GET'])
 def download_file(file_name):
@@ -71,20 +65,16 @@ def download_file(file_name):
                      download_name=file_name, 
                      as_attachment=True)
 
-@app.route('/delete/<path:file_name>', methods=['DELETE'])
+@app.route('/delete/<string:file_name>', methods=['DELETE'])
 def delete_file(file_name):
-    success = delete_file_from_blob(file_name)
-    if not success:
-        return jsonify({"error": "File not found"}), 404
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    delete_file_from_blob(file_name)
+    # Optionally, delete from metadata table if you're maintaining it
+    connection = get_db_connection()
+    cursor = connection.cursor()
     cursor.execute("DELETE FROM file_metadata WHERE file_name = %s", (file_name,))
-    conn.commit()
+    connection.commit()
     cursor.close()
-    conn.close()
-
-    return jsonify({"message": "File deleted successfully"}), 200
+    return jsonify({'message': 'File deleted successfully'}), 200
 
 if __name__ == '__main__':
     app.run(debug=True)

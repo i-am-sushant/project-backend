@@ -35,3 +35,22 @@ def delete_file_from_blob(file_name):
     except Exception as e:
         print(e)
         return False
+    
+def list_blobs_in_container():
+    try:
+        container_client = blob_service_client.get_container_client(container_name)
+        blob_list = container_client.list_blobs()
+        files = []
+        for blob in blob_list:
+            blob_client = container_client.get_blob_client(blob.name)
+            properties = blob_client.get_blob_properties()
+            files.append({
+                'file_name': blob.name,
+                'file_size': properties.size / 1024,  # Size in KB
+                'content_type': properties.content_settings.content_type,
+                'blob_url': blob_client.url
+            })
+        return files
+    except Exception as e:
+        print(f"Error listing blobs: {e}")
+        return []
